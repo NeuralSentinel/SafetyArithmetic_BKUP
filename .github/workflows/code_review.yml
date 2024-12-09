@@ -1,27 +1,30 @@
-name: Code Review with OpenAI
+name: PR Code Review
 
 on:
   pull_request:
+    types: [opened, synchronize]
 
 jobs:
   review:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - name: Install Python
+        uses: actions/setup-python@v3
         with:
-          python-version: 3.9
+          python-version: '3.9'
 
-      - name: Install dependencies
-        run: |
-          pip install openai PyGithub GitPython
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
 
-      - name: Run review
+      - name: Run Code Review Script
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python .github/actions/code_review.py

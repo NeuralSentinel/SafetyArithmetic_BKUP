@@ -5,6 +5,8 @@ import random
 import numpy as np
 import torch
 
+import transformers
+
 from tasks import task_mapper
 from utils.logger import tabular_pretty_print, fmt_float
 

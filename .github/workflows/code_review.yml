@@ -18,7 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install openai PyGithub GitPython
+          pip install openai==0.28 PyGithub GitPython
 
       - name: Run review
         env:

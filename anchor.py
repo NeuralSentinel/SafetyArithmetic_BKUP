@@ -1,4 +1,5 @@
 from pathlib import Path
+import transformers
 import os
 
 root = Path(__file__).parent

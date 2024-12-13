@@ -1,4 +1,6 @@
 from pathlib import Path
+import transformers
+import matplotlib
 import os
 
 root = Path(__file__).parent

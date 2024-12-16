@@ -1,35 +1,33 @@
 pipeline {
     agent any
     environment {
-        PATH = "/usr/local/bin:/usr/bin:/bin"
         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
         GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
     }
     stages {
-        stage('Prepare Environment') {
+        stage('Checkout') {
             steps {
-                sh '''
-                    echo "Verifying Docker availability..."
-                    which docker
-                    docker --version
-                '''
+                // Get your repository code into the workspace
+                checkout scm
+            }
+        }
+        stage('List Files') {
+            steps {
+                sh 'ls -la'
             }
         }
         stage('Run Code Review in Docker') {
             steps {
-                // Use triple-quoted string to easily quote the volume path
                 sh """
-                    # Pull Python 3.9 image if not already available
+                    echo "Pulling Python 3.9 Docker image..."
                     docker pull python:3.9
-                    
-                    # Make sure we quote the local path with spaces
+
+                    echo "Running Docker container to execute review script..."
                     docker run --rm \\
-                        -v "/Users/somnbane/.jenkins/workspace/Automated PR Review:/workspace" \\
+                        -v "\$WORKSPACE:/workspace" \\
                         -w /workspace \\
                         -e OPENAI_API_KEY=\$OPENAI_API_KEY \\
                         -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
-                        -e GITHUB_REPO=\$GITHUB_REPO \\
-                        -e CHANGE_ID=\$CHANGE_ID \\
                         python:3.9 /bin/bash -c "
                             python -m pip install --upgrade pip
                             pip install openai PyGithub GitPython
@@ -40,6 +38,7 @@ pipeline {
         }
     }
 }
+
 
 
 

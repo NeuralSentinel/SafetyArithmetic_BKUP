@@ -94,30 +94,36 @@ def post_comment(pr, comment):
 
 def main():
     """
-    Main flow:
-      1) Retrieve environment variables for GITHUB_REPO and CHANGE_ID
-      2) Connect to GitHub, fetch the PR, and find changed files
-      3) Send files to OpenAI for code review
-      4) Post the review as a PR comment
+    Main flow with added logging and error handling.
     """
     github_token = os.getenv('GITHUB_TOKEN')
-    repo_name    = os.getenv('GITHUB_REPO')
-    pr_number    = os.getenv('CHANGE_ID')  # PR ID from Jenkins environment
+    repo_name    = os.getenv('GITHUB_REPO', '').replace('.git', '')
+    pr_number    = os.getenv('CHANGE_ID')
 
     if not all([github_token, repo_name, pr_number]):
-        print("ERROR: Missing one of the required environment variables: GITHUB_TOKEN, GITHUB_REPO, CHANGE_ID.")
+        print("ERROR: Missing required environment variables: GITHUB_TOKEN, GITHUB_REPO, CHANGE_ID.")
         return
 
-    # Convert pr_number to int if needed
     try:
         pr_number = int(pr_number)
-    except ValueError as e:
-        print(f"ERROR: CHANGE_ID must be an integer, got '{pr_number}': {e}")
+    except ValueError:
+        print(f"ERROR: CHANGE_ID must be an integer, got '{pr_number}'.")
         return
 
-    # Initialize GitHub client and get the PR object
-    gh = Github(github_token)
-    pr = gh.get_repo(repo_name).get_pull(pr_number)
+    try:
+        gh = Github(github_token)
+        repo = gh.get_repo(repo_name)
+        print(f"Connected to repository: {repo.full_name}")
+    except Exception as e:
+        print(f"ERROR: Could not connect to repository '{repo_name}'. Error: {e}")
+        return
+
+    try:
+        pr = repo.get_pull(pr_number)
+        print(f"Fetched PR #{pr_number}: {pr.title}")
+    except Exception as e:
+        print(f"ERROR: Could not fetch PR #{pr_number}. Error: {e}")
+        return
 
     # Get changed files
     files = get_changed_files(pr)

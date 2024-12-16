@@ -3,6 +3,7 @@ import openai
 from github import Github
 import git
 import textwrap
+import subprocess
 
 # Approximate chunk size to avoid token/size limits
 TOKEN_LIMIT_CHARS = 12000

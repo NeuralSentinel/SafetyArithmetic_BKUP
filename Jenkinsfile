@@ -9,7 +9,7 @@ pipeline {
         // Provide your actual "owner/repo"
         GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"
         
-        // If not building a PR automatically, set a param or hardcode the PR number
+        // If not building a PR automatically, set a param or hardcode the PR number 1
         // For dynamic PR builds, remove this and let Jenkins set CHANGE_ID
         CHANGE_ID   = "123"  
     }

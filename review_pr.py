@@ -89,9 +89,10 @@ def main():
     """
     Main function to orchestrate the code review.
     """
+    # Fetch environment variables
     repo_path = os.getenv("WORKSPACE", "/workspace")
-    github_token = os.getenv("GITHUB_TOKEN")
     github_repo = os.getenv("GITHUB_REPO")
+    github_token = os.getenv("GITHUB_TOKEN")
 
     if not github_token or not github_repo:
         raise ValueError("Environment variables GITHUB_TOKEN and GITHUB_REPO are required.")
@@ -116,7 +117,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 

@@ -2,50 +2,22 @@ pipeline {
     agent any
 
     environment {
-        // Explicit PATH setup (if needed)
         PATH = "/usr/local/bin:/usr/bin:/bin"
-
-        // Jenkins credentials
         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
         GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
-
-        // Additional environment vars (edit as needed)
-        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"  // e.g., "octocat/Hello-World"
+        GITHUB_REPO    = "NeuralSentinel/SafetyArithmetic_BKUP"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Pull the Jenkinsfile's own repo code which includes review.py
                 checkout scm
-            }
-        }
-
-        stage('List Files') {
-            steps {
-                sh 'ls -la'
-            }
-        }
-
-        stage('Prepare Environment') {
-            steps {
-                sh '''
-                    echo "Verifying Docker is installed..."
-                    which docker || echo "Docker not found!"
-                    docker --version || true
-
-                    echo "PATH in Jenkins environment is: $PATH"
-                '''
             }
         }
 
         stage('Run Code Review in Docker') {
             steps {
                 sh """
-                    echo "Pulling Python 3.9 Docker image..."
-                    docker pull python:3.9
-
-                    echo "Running Docker container to execute review script..."
                     docker run --rm \
                         -v "\$WORKSPACE:/workspace" \
                         -w /workspace \

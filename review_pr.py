@@ -39,7 +39,7 @@ def send_to_openai(files):
     chunks = textwrap.wrap(code, TOKEN_LIMIT)
     reviews = []
     for chunk in chunks:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "user", "content": "Review this code:\n" + chunk}

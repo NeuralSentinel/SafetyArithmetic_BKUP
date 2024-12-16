@@ -29,7 +29,7 @@ pipeline {
                         python:3.9 /bin/bash -c "
                             python -m pip install --upgrade pip
                             pip install openai PyGithub GitPython
-                            python review.py
+                            python review_pr.py
                         "
                 """
             }

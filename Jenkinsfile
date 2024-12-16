@@ -26,7 +26,7 @@ pipeline {
         stage('Run Code Review') {
             steps {
                 sh '''
-                python .github/actions/review_pr.py
+                python review_pr.py
                 '''
             }
         }

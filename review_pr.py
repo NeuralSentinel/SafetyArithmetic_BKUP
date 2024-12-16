@@ -1,82 +1,169 @@
 import os
+import requests
+from github import Github
 import openai
-import git
 import textwrap
-import subprocess
-
-# Load OpenAI API key from environment
-openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Set the maximum token limit for GPT-4
 TOKEN_LIMIT = 4000
 
-def get_file_content(file_path):
-    with open(file_path, 'r') as file:
-        return file.read()
+def get_pull_request_files(repo_name, pr_number, github_token):
+    """
+    Fetches the changed files in a pull request from GitHub.
 
-def get_changed_files(repo_path):
-    # Ensure we are in the correct branch by explicitly checking out
-    repo = git.Repo(repo_path)
-    repo.git.checkout('main')  # Change 'main' to your branch if different
+    Args:
+        repo_name (str): Full repository name (e.g., 'user/repo').
+        pr_number (int): Pull request number.
+        github_token (str): GitHub personal access token for authentication.
 
-    # Get list of changed files against the remote main branch
-    result = repo.git.diff('--name-only', 'origin/main')
-    changed_files = result.splitlines()
+    Returns:
+        dict: A dictionary containing file paths and their content.
+    """
+    g = Github(github_token)
+    repo = g.get_repo(repo_name)
+    pr = repo.get_pull(pr_number)
     files = {}
-
-    for file_path in changed_files:
-        full_path = os.path.join(repo_path, file_path)
-        if os.path.isfile(full_path):
-            try:
-                files[file_path] = get_file_content(full_path)
-            except Exception as e:
-                print(f"Failed to read {file_path}: {e}")
-
+    for file in pr.get_files():
+        content = requests.get(file.raw_url, headers={'Authorization': f'token {github_token}'}).text
+        files[file.filename] = content
     return files
 
 def send_to_openai(files):
+    """
+    Sends the changed files to OpenAI for review.
+
+    Args:
+        files (dict): A dictionary containing file paths and their content.
+
+    Returns:
+        str: The review returned by OpenAI.
+    """
     code = '\n'.join(files.values())
     chunks = textwrap.wrap(code, TOKEN_LIMIT)
+
     reviews = []
     for chunk in chunks:
-        response = openai.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "user", "content": "Review this code:\n" + chunk}
+                {
+                    "role": "user",
+                    "content": (
+                        "You are a code reviewer. Review the provided code, identify "
+                        "issues, and suggest improvements:\n" + chunk
+                    )
+                }
             ],
         )
         reviews.append(response.choices[0].message.content)
+
     return '\n'.join(reviews)
 
-def post_comment(review):
-    print("OpenAI Code Review Output:")
-    print(review)
-
 def main():
-    repo_path = os.getenv("WORKSPACE", "/workspace")
-    github_repo = os.getenv("GITHUB_REPO")
-    github_token = os.getenv("GITHUB_TOKEN")
+    """
+    Main function to orchestrate the pull request code review.
+    """
+    github_token = os.getenv('GITHUB_TOKEN')
+    github_repo = os.getenv('GITHUB_REPO')
+    pr_number = int(os.getenv('CHANGE_ID'))  # Ensure CHANGE_ID is passed by Jenkins environment
 
-    if not github_token or not github_repo:
-        raise ValueError("Environment variables GITHUB_TOKEN and GITHUB_REPO are required.")
+    if not github_token or not github_repo or not pr_number:
+        raise ValueError("GitHub token, repository, and PR number must be provided as environment variables.")
 
-    if not os.path.exists(os.path.join(repo_path, ".git")):
-        print(f"Cloning repository {github_repo} to {repo_path}...")
-        git.Repo.clone_from(f"https://{github_token}@github.com/{github_repo}.git", repo_path)
+    files = get_pull_request_files(github_repo, pr_number, github_token)
 
-    repo = git.Repo(repo_path)
-    repo.git.fetch()
-
-    files = get_changed_files(repo_path)
     if not files:
         print("No changed files to review.")
         return
 
     review = send_to_openai(files)
-    post_comment(review)
+    print("OpenAI Code Review Output:")
+    print(review)
 
 if __name__ == "__main__":
     main()
+
+
+
+# import os
+# import openai
+# import git
+# import textwrap
+# import subprocess
+
+# # Load OpenAI API key from environment
+# openai.api_key = os.getenv('OPENAI_API_KEY')
+
+# # Set the maximum token limit for GPT-4
+# TOKEN_LIMIT = 4000
+
+# def get_file_content(file_path):
+#     with open(file_path, 'r') as file:
+#         return file.read()
+
+# def get_changed_files(repo_path):
+#     # Ensure we are in the correct branch by explicitly checking out
+#     repo = git.Repo(repo_path)
+#     repo.git.checkout('main')  # Change 'main' to your branch if different
+
+#     # Get list of changed files against the remote main branch
+#     result = repo.git.diff('--name-only', 'origin/main')
+#     changed_files = result.splitlines()
+#     files = {}
+
+#     for file_path in changed_files:
+#         full_path = os.path.join(repo_path, file_path)
+#         if os.path.isfile(full_path):
+#             try:
+#                 files[file_path] = get_file_content(full_path)
+#             except Exception as e:
+#                 print(f"Failed to read {file_path}: {e}")
+
+#     return files
+
+# def send_to_openai(files):
+#     code = '\n'.join(files.values())
+#     chunks = textwrap.wrap(code, TOKEN_LIMIT)
+#     reviews = []
+#     for chunk in chunks:
+#         response = openai.chat.completions.create(
+#             model="gpt-4",
+#             messages=[
+#                 {"role": "user", "content": "Review this code:\n" + chunk}
+#             ],
+#         )
+#         reviews.append(response.choices[0].message.content)
+#     return '\n'.join(reviews)
+
+# def post_comment(review):
+#     print("OpenAI Code Review Output:")
+#     print(review)
+
+# def main():
+#     repo_path = os.getenv("WORKSPACE", "/workspace")
+#     github_repo = os.getenv("GITHUB_REPO")
+#     github_token = os.getenv("GITHUB_TOKEN")
+
+#     if not github_token or not github_repo:
+#         raise ValueError("Environment variables GITHUB_TOKEN and GITHUB_REPO are required.")
+
+#     if not os.path.exists(os.path.join(repo_path, ".git")):
+#         print(f"Cloning repository {github_repo} to {repo_path}...")
+#         git.Repo.clone_from(f"https://{github_token}@github.com/{github_repo}.git", repo_path)
+
+#     repo = git.Repo(repo_path)
+#     repo.git.fetch()
+
+#     files = get_changed_files(repo_path)
+#     if not files:
+#         print("No changed files to review.")
+#         return
+
+#     review = send_to_openai(files)
+#     post_comment(review)
+
+# if __name__ == "__main__":
+#     main()
 
 
 

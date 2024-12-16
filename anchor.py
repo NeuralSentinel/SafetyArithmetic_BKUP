@@ -1,5 +1,4 @@
 from pathlib import Path
-import transformers
 import matplotlib
 import os
 

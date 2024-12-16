@@ -1,10 +1,13 @@
 pipeline {
     agent {
-        label 'ubuntu-latest'
+        docker {
+            image 'python:3.9' // Use Python 3.9 Docker image
+            args '-u root'     // Run as root to allow package installations
+        }
     }
     environment {
-        OPENAI_API_KEY = credentials('OPENAI_API_KEY') // Store API Key securely in Jenkins credentials
-        GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // Store GitHub token securely in Jenkins credentials
+        OPENAI_API_KEY = credentials('OPENAI_API_KEY') // Securely fetch API key from Jenkins credentials
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // Securely fetch GitHub token from Jenkins credentials
     }
     stages {
         stage('Checkout repository') {
@@ -13,19 +16,13 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Set up Python environment') {
+        stage('Install dependencies') {
             steps {
                 sh '''
-                # Install or ensure Python 3.9 is available
-                sudo apt-get update
-                sudo apt-get install -y python3.9 python3.9-venv python3-pip
+                # Upgrade pip
+                python -m pip install --upgrade pip
 
-                # Create a virtual environment
-                python3.9 -m venv venv
-                source venv/bin/activate
-
-                # Upgrade pip and install dependencies
-                pip install --upgrade pip
+                # Install required Python packages
                 pip install openai PyGithub GitPython
                 '''
             }
@@ -33,16 +30,14 @@ pipeline {
         stage('Run Code Review') {
             steps {
                 sh '''
-                # Activate the virtual environment
-                source venv/bin/activate
-
-                # Run the code review script
+                # Execute the code review script
                 python .github/actions/code_review.py
                 '''
             }
         }
     }
 }
+
 
 
 

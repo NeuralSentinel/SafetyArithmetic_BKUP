@@ -11,37 +11,17 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 TOKEN_LIMIT = 4000
 
 def get_file_content(file_path):
-    """
-    Reads the content of a file.
-
-    Args:
-        file_path (str): The path to the file.
-
-    Returns:
-        str: The content of the file.
-    """
     with open(file_path, 'r') as file:
         return file.read()
 
 def get_changed_files(repo_path):
-    """
-    Fetches the list of changed files using `git diff`.
+    # Ensure we are in the correct branch by explicitly checking out
+    repo = git.Repo(repo_path)
+    repo.git.checkout('main')  # Change 'main' to your branch if different
 
-    Args:
-        repo_path (str): The local path to the repository.
-
-    Returns:
-        dict: A dictionary containing file paths and their content.
-    """
-    # Run `git diff` to get changed file paths
-    cmd = ["git", "diff", "--name-only", "origin/main"]
-    result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        print(f"Error running git diff: {result.stderr}")
-        return {}
-
-    changed_files = result.stdout.splitlines()
+    # Get list of changed files against the remote main branch
+    result = repo.git.diff('--name-only', 'origin/main')
+    changed_files = result.splitlines()
     files = {}
 
     for file_path in changed_files:
@@ -55,50 +35,24 @@ def get_changed_files(repo_path):
     return files
 
 def send_to_openai(files):
-    """
-    Sends the changed files to OpenAI for review.
-
-    Args:
-        files (dict): A dictionary containing file paths and their content.
-
-    Returns:
-        str: The review returned by OpenAI.
-    """
     code = '\n'.join(files.values())
     chunks = textwrap.wrap(code, TOKEN_LIMIT)
-
     reviews = []
     for chunk in chunks:
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "You are a code reviewer. Review the provided code, identify "
-                        "issues, and suggest improvements:\n" + chunk
-                    )
-                }
+                {"role": "user", "content": "Review this code:\n" + chunk}
             ],
         )
         reviews.append(response.choices[0].message.content)
-
     return '\n'.join(reviews)
 
 def post_comment(review):
-    """
-    Prints the review to stdout (Jenkins console output).
-
-    Args:
-        review (str): The review content.
-    """
     print("OpenAI Code Review Output:")
     print(review)
 
 def main():
-    """
-    Main function to orchestrate the code review.
-    """
     repo_path = os.getenv("WORKSPACE", "/workspace")
     github_repo = os.getenv("GITHUB_REPO")
     github_token = os.getenv("GITHUB_TOKEN")
@@ -106,30 +60,24 @@ def main():
     if not github_token or not github_repo:
         raise ValueError("Environment variables GITHUB_TOKEN and GITHUB_REPO are required.")
 
-    # Clone the repository if it's not already cloned
     if not os.path.exists(os.path.join(repo_path, ".git")):
         print(f"Cloning repository {github_repo} to {repo_path}...")
         git.Repo.clone_from(f"https://{github_token}@github.com/{github_repo}.git", repo_path)
 
-    # Fetch the latest changes
     repo = git.Repo(repo_path)
     repo.git.fetch()
 
-    # Get the changed files
     files = get_changed_files(repo_path)
-
     if not files:
         print("No changed files to review.")
         return
 
-    # Send the changed files to OpenAI
     review = send_to_openai(files)
-
-    # Post the review
     post_comment(review)
 
 if __name__ == "__main__":
     main()
+
 
 
 

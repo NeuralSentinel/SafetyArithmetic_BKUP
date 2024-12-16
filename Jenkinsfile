@@ -31,12 +31,7 @@ pipeline {
                         pip install openai PyGithub GitPython
 
                         # Run your Python script
-                        python -c '
-import os
-print(\"API Key:\", os.environ.get(\"OPENAI_API_KEY\", \"Not Set\"))
-print(\"GitHub Token:\", os.environ.get(\"GITHUB_TOKEN\", \"Not Set\"))
-print(\"Code Review Simulation Completed.\")
-                        '
+                        python -c review_pr.py
                     "
                 '''
             }

@@ -16,18 +16,16 @@ def get_file_content(file_path):
 
 def get_changed_files(repo_path):
     repo = git.Repo(repo_path)
-    # Checkout to the branch if not already on it
-    repo.git.checkout('main')  # Ensure this is your target branch
-
-    # Fetch latest changes from the remote and set the tracking branch
+    print("Current branch:", repo.active_branch.name)
     repo.git.fetch()
-    repo.remotes.origin.pull('main')  # Update local main branch with remote changes
+    print("Remote branches:", repo.git.branch('-r'))
 
-    # Get list of changed files by comparing HEAD with the remote main
-    result = repo.git.diff('--name-only', 'HEAD', 'origin/main')
+    # Try a more general diff if specifics fail
+    result = repo.git.diff('--name-only')
+    print("Diff result:", result)
     changed_files = result.splitlines()
-    files = {}
 
+    files = {}
     if not changed_files:
         print("Debug: No files listed from git diff.")
 
@@ -40,6 +38,7 @@ def get_changed_files(repo_path):
                 print(f"Failed to read {file_path}: {e}")
 
     return files
+
 
 
 def send_to_openai(files):

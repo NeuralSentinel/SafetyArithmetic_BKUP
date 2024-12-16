@@ -2,176 +2,83 @@ import os
 import openai
 from github import Github
 import git
-import textwrap
-import subprocess
 
-# Approximate chunk size to avoid token/size limits
+# Constants
 TOKEN_LIMIT_CHARS = 12000
 
-def get_file_content(file_path):
+def get_changed_files(repo, pr_number):
     """
-    Reads the content of a file and returns it as a string.
+    Fetch changed files in a pull request.
     """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
-
-def get_changed_files(pr):
-    """
-    Clones the PR's repository and fetches all changed file contents in the PR.
-    Returns a dict of { 'file_path': 'file_content' }.
-    """
-    # Clone the PR branch into ./repo
-    repo = git.Repo.clone_from(pr.base.repo.clone_url, to_path='./repo', branch=pr.head.ref)
-
-    # Compare base branch vs PR branch to find changed files
-    base_ref = f"origin/{pr.base.ref}"
-    head_ref = f"origin/{pr.head.ref}"
-    diff_output = repo.git.diff(base_ref, head_ref, name_only=True).strip()
-
-    if not diff_output:
-        print("No files changed or diff is empty.")
-        return {}
-
+    pr = repo.get_pull(pr_number)
     changed_files = {}
-    for file_path in diff_output.split('\n'):
-        file_path = file_path.strip()
-        if not file_path:
-            continue
+    for file in pr.get_files():
         try:
-            full_path = os.path.join('./repo', file_path)
-            changed_files[file_path] = get_file_content(full_path)
+            content = repo.get_contents(file.filename, ref=pr.head.ref)
+            changed_files[file.filename] = content.decoded_content.decode('utf-8')
         except Exception as e:
-            print(f"Failed to read {file_path}: {e}")
+            print(f"Failed to fetch {file.filename}: {e}")
     return changed_files
 
 def send_to_openai(files):
     """
     Sends changed file contents to OpenAI for code review.
-    Returns a single string containing the aggregated review.
     """
-    openai.api_key = os.getenv('OPENAI_API_KEY', '')
-
-    # Combine all file contents into one big string
+    openai.api_key = os.getenv('OPENAI_API_KEY')
     code_concat = "\n".join(files.values())
-
-    # Break code into smaller chunks
-    chunks = textwrap.wrap(code_concat, TOKEN_LIMIT_CHARS)
-    
+    chunks = [code_concat[i:i+TOKEN_LIMIT_CHARS] for i in range(0, len(code_concat), TOKEN_LIMIT_CHARS)]
     reviews = []
     for chunk in chunks:
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-4",  # Or "gpt-3.5-turbo" if you don't have GPT-4 access
+                model="gpt-4",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a senior code reviewer. "
-                            "Your responsibility is to review the provided code, "
-                            "offer detailed recommendations for improvement, highlight potential issues, "
-                            "and evaluate the overall code quality."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": chunk
-                    }
+                    {"role": "system", "content": "You are a code reviewer. Provide feedback on the given code."},
+                    {"role": "user", "content": chunk}
                 ],
             )
-            ai_review = response.choices[0].message.content
-            reviews.append(ai_review)
+            reviews.append(response.choices[0].message.content)
         except Exception as e:
-            print(f"Error calling OpenAI API: {e}")
-            reviews.append(f"**OpenAI Error**: {e}")
-
-    # Combine chunk reviews into a single text
+            reviews.append(f"Error: {e}")
     return "\n\n---\n\n".join(reviews)
 
-def post_comment(pr, comment):
+def post_comment(repo, pr_number, comment):
     """
-    Posts a comment on the pull request with the AI-generated review.
+    Post a comment to a pull request.
     """
+    pr = repo.get_pull(pr_number)
     pr.create_issue_comment(comment)
-
-def get_current_branch():
-    """
-    Detects the branch name dynamically using Jenkins env variables or git commands.
-    """
-    # Try to get the branch name from Jenkins environment variables
-    branch_name = os.getenv('CHANGE_BRANCH') or os.getenv('BRANCH_NAME')
-    if branch_name:
-        return branch_name
-
-    # Fallback to git command
-    try:
-        branch_name = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
-        ).strip()
-        return branch_name
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR: Could not detect current branch. {e}")
-        return None
-
-def get_pr_branch(repo, pr_number):
-    """
-    Fetches the branch name associated with a pull request.
-    """
-    try:
-        pr = repo.get_pull(pr_number)
-        return pr.head.ref
-    except Exception as e:
-        print(f"ERROR: Could not fetch PR #{pr_number} branch. {e}")
-        return None
 
 def main():
     """
-    Main flow to dynamically detect CHANGE_ID and BRANCH_NAME.
+    Main function to handle the workflow.
     """
     github_token = os.getenv('GITHUB_TOKEN')
-    repo_name = os.getenv('GITHUB_REPO', '').replace('.git', '')
+    repo_name = os.getenv('GITHUB_REPO')
     
     if not github_token or not repo_name:
-        print("ERROR: Missing required environment variables: GITHUB_TOKEN, GITHUB_REPO.")
+        print("Missing GITHUB_TOKEN or GITHUB_REPO.")
         return
 
-    try:
-        gh = Github(github_token)
-        repo = gh.get_repo(repo_name)
-        print(f"Connected to repository: {repo.full_name}")
-    except Exception as e:
-        print(f"ERROR: Could not connect to repository '{repo_name}'. Error: {e}")
-        return
-
-    # Detect the branch name
-    branch_name = get_current_branch()
-    if not branch_name:
-        print("ERROR: Could not detect the current branch name.")
-        return
-    print(f"Detected Branch Name: {branch_name}")
-
-    # Detect PR number associated with the branch
-    pr_number = None
-    pulls = repo.get_pulls(state='open')
-    for pr in pulls:
-        if pr.head.ref == branch_name:
-            pr_number = pr.number
-            break
-
+    gh = Github(github_token)
+    repo = gh.get_repo(repo_name)
+    
+    pr_number = os.getenv('CHANGE_ID')
     if not pr_number:
-        print(f"ERROR: No open pull request found for branch '{branch_name}'.")
+        print("CHANGE_ID is not set.")
+        return
+    
+    changed_files = get_changed_files(repo, int(pr_number))
+    if not changed_files:
+        print("No changed files detected.")
         return
 
-    print(f"Detected PR Number: {pr_number}")
-
-    try:
-        pr = repo.get_pull(pr_number)
-        print(f"Fetched PR #{pr_number}: {pr.title}")
-        # Add further processing logic here...
-    except Exception as e:
-        print(f"ERROR: Could not fetch PR #{pr_number}. Error: {e}")
+    review = send_to_openai(changed_files)
+    post_comment(repo, int(pr_number), review)
 
 if __name__ == "__main__":
     main()
+
 
 
 # import os

@@ -1,20 +1,31 @@
 pipeline {
     agent any
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build')
+        string(name: 'GITHUB_REPO', defaultValue: 'NeuralSentinel/SafetyArithmetic_BKUP', description: 'GitHub Repository')
+    }
     environment {
         PATH = "/usr/local/bin:/usr/bin:/bin"
         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')
-        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"
     }
     stages {
+        stage('Debug Environment') {
+            steps {
+                sh """
+                  echo "GITHUB_TOKEN: ${GITHUB_TOKEN:+Loaded}"
+                  echo "GITHUB_REPO: ${GITHUB_REPO}"
+                """
+            }
+        }
         stage('Checkout') {
             steps {
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/${BRANCH_NAME}']],
                     userRemoteConfigs: [[
-                        url: 'https://github.com/NeuralSentinel/SafetyArithmetic_BKUP.git',
-                        credentialsId: 'GITHUB_TOKEN'  // Use token-based HTTPS authentication
+                        url: "https://github.com/${GITHUB_REPO}.git",
+                        credentialsId: 'GITHUB_TOKEN'  // Replace with correct credentials ID
                     ]]
                 ])
             }
@@ -36,6 +47,7 @@ pipeline {
         }
     }
 }
+
 
 
 //tes

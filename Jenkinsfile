@@ -1,4 +1,3 @@
-# Simplified Jenkins Pipeline
 pipeline {
     agent any
     environment {

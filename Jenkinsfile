@@ -10,7 +10,7 @@ pipeline {
         GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
 
         // Additional environment vars (edit as needed)
-        GITHUB_REPO = "owner/repository"  // e.g. "octocat/Hello-World"
+        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"  // e.g. "octocat/Hello-World"
         CHANGE_ID   = "123"               // PR number
     }
 

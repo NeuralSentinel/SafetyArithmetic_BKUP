@@ -23,17 +23,20 @@ pipeline {
 
                 # Run a Docker container and execute the review script
                 docker run --rm \
-                    -e OPENAI_API_KEY=$OPENAI_API_KEY \
-                    -e GITHUB_TOKEN=$GITHUB_TOKEN \
+                    -v $PWD:/workspace \  # Mount current directory into the container
+                    -w /workspace \       # Set working directory inside the container
+                    -e OPENAI_API_KEY=$OPENAI_API_KEY \ # Pass OpenAI API key
+                    -e GITHUB_TOKEN=$GITHUB_TOKEN \     # Pass GitHub token
+                    -e GITHUB_REPO=$GITHUB_REPO \       # Pass GitHub repo name
+                    -e CHANGE_ID=$CHANGE_ID \           # Pass PR number (CHANGE_ID)
                     python:3.9 /bin/bash -c "
                         # Install dependencies
                         python -m pip install --upgrade pip
                         pip install openai PyGithub GitPython
 
-                        # Run your Python script
-                        python -c review_pr.py
+                        # Run the review script
+                        python review.py
                     "
-                '''
             }
         }
     }

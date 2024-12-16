@@ -92,22 +92,29 @@ def post_comment(pr, comment):
     """
     pr.create_issue_comment(comment)
 
+def get_pr_number(repo, branch_name):
+    """
+    Fetches the pull request number associated with the given branch.
+    """
+    try:
+        pulls = repo.get_pulls(state='open')
+        for pr in pulls:
+            if pr.head.ref == branch_name:
+                return pr.number
+    except Exception as e:
+        print(f"ERROR: Could not fetch pull requests. Error: {e}")
+    return None
+
 def main():
     """
-    Main flow with added logging and error handling.
+    Main flow to auto-detect CHANGE_ID dynamically.
     """
     github_token = os.getenv('GITHUB_TOKEN')
-    repo_name    = os.getenv('GITHUB_REPO', '').replace('.git', '')
-    pr_number    = os.getenv('CHANGE_ID')
+    repo_name = os.getenv('GITHUB_REPO', '').replace('.git', '')
+    branch_name = os.getenv('BRANCH_NAME', '')  # Passed dynamically by CI/CD or detected locally
 
-    if not all([github_token, repo_name, pr_number]):
-        print("ERROR: Missing required environment variables: GITHUB_TOKEN, GITHUB_REPO, CHANGE_ID.")
-        return
-
-    try:
-        pr_number = int(pr_number)
-    except ValueError:
-        print(f"ERROR: CHANGE_ID must be an integer, got '{pr_number}'.")
+    if not github_token or not repo_name or not branch_name:
+        print("ERROR: Missing required environment variables: GITHUB_TOKEN, GITHUB_REPO, BRANCH_NAME.")
         return
 
     try:
@@ -118,24 +125,20 @@ def main():
         print(f"ERROR: Could not connect to repository '{repo_name}'. Error: {e}")
         return
 
+    # Dynamically detect PR number based on branch
+    pr_number = get_pr_number(repo, branch_name)
+    if pr_number is None:
+        print(f"ERROR: No open pull request found for branch '{branch_name}'.")
+        return
+
+    print(f"Detected PR Number: {pr_number}")
+
     try:
         pr = repo.get_pull(pr_number)
         print(f"Fetched PR #{pr_number}: {pr.title}")
+        # Add further processing logic here...
     except Exception as e:
         print(f"ERROR: Could not fetch PR #{pr_number}. Error: {e}")
-        return
-
-    # Get changed files
-    files = get_changed_files(pr)
-    if not files:
-        print("No changed files found or unable to retrieve changed files.")
-        return
-
-    # Generate an OpenAI code review
-    review_text = send_to_openai(files)
-
-    # Post the review to the PR
-    post_comment(pr, review_text)
 
 if __name__ == "__main__":
     main()

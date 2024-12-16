@@ -2,11 +2,10 @@ pipeline {
     agent {
         docker {
             image 'python:3.9'
-            args '-u 0' // Run as root for permission issues
+            args '-e PATH=/usr/local/bin:/usr/bin:/bin'
         }
     }
     environment {
-        PATH = "/usr/local/bin:/usr/bin:/bin"
         OPENAI_API_KEY = credentials('OPENAI_API_KEY') // Inject from Jenkins credentials
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // Inject from Jenkins credentials
     }
@@ -26,7 +25,7 @@ pipeline {
         stage('Run Code Review') {
             steps {
                 sh '''
-                python review_pr.py
+                python .github/actions/code_review.py
                 '''
             }
         }

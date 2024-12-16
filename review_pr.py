@@ -95,10 +95,18 @@ def post_comment(pr, comment):
 
 def get_current_branch():
     """
-    Detects the current Git branch name using `git rev-parse`.
+    Detects the branch name dynamically using Jenkins env variables or git commands.
     """
+    # Try to get the branch name from Jenkins environment variables
+    branch_name = os.getenv('CHANGE_BRANCH') or os.getenv('BRANCH_NAME')
+    if branch_name:
+        return branch_name
+
+    # Fallback to git command
     try:
-        branch_name = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
+        branch_name = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
+        ).strip()
         return branch_name
     except subprocess.CalledProcessError as e:
         print(f"ERROR: Could not detect current branch. {e}")
@@ -134,7 +142,7 @@ def main():
         print(f"ERROR: Could not connect to repository '{repo_name}'. Error: {e}")
         return
 
-    # Try to detect the current branch name
+    # Detect the branch name
     branch_name = get_current_branch()
     if not branch_name:
         print("ERROR: Could not detect the current branch name.")
@@ -164,7 +172,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 # import os

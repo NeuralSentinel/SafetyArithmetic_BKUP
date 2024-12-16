@@ -7,7 +7,7 @@ pipeline {
         GITHUB_TOKEN   = credentials('GITHUB_TOKEN')  // Must exist in Jenkins credentials
 
         // Provide your actual "owner/repo"
-        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP.git"
+        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"
         
         // If not building a PR automatically, set a param or hardcode the PR number
         // For dynamic PR builds, remove this and let Jenkins set CHANGE_ID

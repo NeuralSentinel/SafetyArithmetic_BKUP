@@ -1,8 +1,6 @@
+# Simplified Jenkins Pipeline
 pipeline {
     agent any
-    parameters {
-        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build')
-    }
     environment {
         PATH = "/usr/local/bin:/usr/bin:/bin"
         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
@@ -14,8 +12,11 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: "*/${BRANCH_NAME}"]],
-                    userRemoteConfigs: [[url: 'git@github.com:NeuralSentinel/SafetyArithmetic_BKUP.git']]
+                    branches: [[name: '*/${BRANCH_NAME}']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/NeuralSentinel/SafetyArithmetic_BKUP.git',
+                        credentialsId: 'GITHUB_TOKEN'  // Use token-based HTTPS authentication
+                    ]]
                 ])
             }
         }
@@ -36,7 +37,6 @@ pipeline {
         }
     }
 }
-
 
 
 //tes

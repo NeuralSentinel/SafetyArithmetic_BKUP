@@ -1,15 +1,15 @@
 pipeline {
     agent any
     environment {
-        PATH = "/usr/local/bin:/usr/bin:/bin" // Explicitly define PATH as in your original pipeline
-        OPENAI_API_KEY = credentials('OPENAI_API_KEY') // Securely fetch API key from Jenkins credentials
-        GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // Securely fetch GitHub token from Jenkins credentials
+        PATH = "/usr/local/bin:/usr/bin:/bin" // Your explicit PATH setup
+        OPENAI_API_KEY = credentials('OPENAI_API_KEY') // API key for OpenAI
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // GitHub token
     }
     stages {
         stage('Prepare Environment') {
             steps {
                 sh '''
-                # Verify Docker is available
+                # Ensure Docker is available
                 which docker
                 docker --version
                 '''
@@ -18,28 +18,32 @@ pipeline {
         stage('Run Code Review in Docker') {
             steps {
                 sh '''
-                # Pull Python 3.9 Docker image
+                # Pull the Python 3.9 image (if not already pulled)
                 docker pull python:3.9
 
-                # Run the Docker container to execute the script
+                # Run a Docker container and execute the review script
                 docker run --rm \
-                    -v $PWD:/workspace \  # Mount workspace to container
-                    -w /workspace \       # Set working directory inside the container
-                    -e OPENAI_API_KEY=$OPENAI_API_KEY \ # Pass environment variables
+                    -e OPENAI_API_KEY=$OPENAI_API_KEY \
                     -e GITHUB_TOKEN=$GITHUB_TOKEN \
                     python:3.9 /bin/bash -c "
                         # Install dependencies
                         python -m pip install --upgrade pip
                         pip install openai PyGithub GitPython
 
-                        # Execute the script
-                        python .github/actions/code_review.py
+                        # Run your Python script
+                        python -c '
+import os
+print(\"API Key:\", os.environ.get(\"OPENAI_API_KEY\", \"Not Set\"))
+print(\"GitHub Token:\", os.environ.get(\"GITHUB_TOKEN\", \"Not Set\"))
+print(\"Code Review Simulation Completed.\")
+                        '
                     "
                 '''
             }
         }
     }
 }
+
 
 
 

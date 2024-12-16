@@ -16,8 +16,16 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
-            }
+        script {
+            checkout([
+                $class: 'GitSCM',
+                branches: [[name: '*/${BRANCH_NAME}']],
+                doGenerateSubmoduleConfigurations: false,
+                extensions: [],
+                userRemoteConfigs: [[url: 'git@github.com:NeuralSentinel/SafetyArithmetic_BKUP.git']]
+            ])
+        }
+    }
         }
         stage('Run Code Review') {
             steps {

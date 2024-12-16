@@ -1,9 +1,9 @@
 pipeline {
     agent any
     environment {
-        PATH = "/usr/local/bin:/usr/bin:/bin" // Your explicit PATH setup
-        OPENAI_API_KEY = credentials('OPENAI_API_KEY') // API key for OpenAI
-        GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // GitHub token
+        PATH = "/usr/local/bin:/usr/bin:/bin"
+        OPENAI_API_KEY = credentials('OPENAI_API_KEY')
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')
     }
     stages {
         stage('Prepare Environment') {
@@ -23,24 +23,23 @@ pipeline {
 
                 # Run a Docker container and execute the review script
                 docker run --rm \
-                    -v $PWD:/workspace \  # Mount current directory into the container
-                    -w /workspace \       # Set working directory inside the container
-                    -e OPENAI_API_KEY=$OPENAI_API_KEY \ # Pass OpenAI API key
-                    -e GITHUB_TOKEN=$GITHUB_TOKEN \     # Pass GitHub token
-                    -e GITHUB_REPO=$GITHUB_REPO \       # Pass GitHub repo name
-                    -e CHANGE_ID=$CHANGE_ID \           # Pass PR number (CHANGE_ID)
+                    -v $PWD:/workspace \
+                    -w /workspace \
+                    -e OPENAI_API_KEY=$OPENAI_API_KEY \
+                    -e GITHUB_TOKEN=$GITHUB_TOKEN \
+                    -e GITHUB_REPO=$GITHUB_REPO \
+                    -e CHANGE_ID=$CHANGE_ID \
                     python:3.9 /bin/bash -c "
-                        # Install dependencies
                         python -m pip install --upgrade pip
                         pip install openai PyGithub GitPython
-
-                        # Run the review script
                         python review.py
                     "
+                '''
             }
         }
     }
 }
+
 
 
 

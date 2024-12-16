@@ -1,52 +1,46 @@
 pipeline {
-    agent any
-    parameters {
-        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build')
-        string(name: 'GITHUB_REPO', defaultValue: 'NeuralSentinel/SafetyArithmetic_BKUP', description: 'GitHub Repository')
+    agent {
+        docker {
+            image 'python:3.9'
+            args '-u 0' // Run as root for permission issues
+        }
     }
     environment {
         PATH = "/usr/local/bin:/usr/bin:/bin"
-        OPENAI_API_KEY = credentials('OPENAI_API_KEY')
-        GITHUB_TOKEN = credentials('GITHUB_TOKEN')
+        OPENAI_API_KEY = credentials('OPENAI_API_KEY') // Inject from Jenkins credentials
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // Inject from Jenkins credentials
     }
     stages {
-        stage('Debug Environment') {
-            steps {
-                sh """
-                  echo "GITHUB_TOKEN: ${GITHUB_TOKEN:+Loaded}"
-                  echo "GITHUB_REPO: ${GITHUB_REPO}"
-                """
-            }
-        }
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/${BRANCH_NAME}']],
-                    userRemoteConfigs: [[
-                        url: "https://github.com/${GITHUB_REPO}.git",
-                        credentialsId: 'GITHUB_TOKEN'  // Replace with correct credentials ID
-                    ]]
-                ])
+                checkout scm
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                pip install --no-cache-dir openai PyGithub GitPython
+                '''
             }
         }
         stage('Run Code Review') {
             steps {
-                sh """
-                  docker run --rm \
-                    -v "${WORKSPACE}:/workspace" \
-                    -w /workspace \
-                    -e OPENAI_API_KEY=${OPENAI_API_KEY} \
-                    -e GITHUB_TOKEN=${GITHUB_TOKEN} \
-                    python:3.9 /bin/bash -c "
-                        python -m pip install --upgrade pip && \
-                        pip install openai PyGithub GitPython && \
-                        python review_pr.py"
-                """
+                sh '''
+                python .github/actions/review_pr.py
+                '''
             }
         }
     }
+    post {
+        always {
+            echo 'Pipeline execution complete.'
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
 }
+
 
 
 

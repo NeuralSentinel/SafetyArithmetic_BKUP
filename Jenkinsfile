@@ -1,49 +1,26 @@
 pipeline {
     agent any
-    
     environment {
-        // Your explicit PATH setup
-        PATH = "/usr/local/bin:/usr/bin:/bin"
-        
-        // Jenkins credentials
-        OPENAI_API_KEY = credentials('OPENAI_API_KEY')
-        GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
+        PATH            = "/usr/local/bin:/usr/bin:/bin"
+        OPENAI_API_KEY  = credentials('OPENAI_API_KEY')
+        GITHUB_TOKEN    = credentials('GITHUB_TOKEN')
     }
-    
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
-        stage('Verify Files') {
+        stage('List Files') {
             steps {
-                // List files in the workspace to confirm review.py is present
+                // Confirm review.py is at the root of this workspace
                 sh 'ls -la'
             }
         }
-        
-        stage('Prepare Environment') {
-            steps {
-                sh '''
-                    echo "Verifying Docker availability..."
-                    which docker
-                    docker --version
-                    
-                    echo "PATH in Jenkins environment is: $PATH"
-                '''
-            }
-        }
-        
         stage('Run Code Review in Docker') {
             steps {
-                // Use triple-quoted string so we can easily quote the mount path
                 sh """
-                    echo "Pulling Python 3.9 Docker image..."
                     docker pull python:3.9
-                    
-                    echo "Running Docker container to execute review script..."
                     docker run --rm \\
                         -v "\$WORKSPACE:/workspace" \\
                         -w /workspace \\
@@ -59,6 +36,7 @@ pipeline {
         }
     }
 }
+
 
 
 

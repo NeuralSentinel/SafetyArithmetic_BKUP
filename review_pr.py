@@ -92,29 +92,37 @@ def post_comment(pr, comment):
     """
     pr.create_issue_comment(comment)
 
-def get_pr_number(repo, branch_name):
+def get_current_branch():
     """
-    Fetches the pull request number associated with the given branch.
+    Detects the current Git branch name using `git rev-parse`.
     """
     try:
-        pulls = repo.get_pulls(state='open')
-        for pr in pulls:
-            if pr.head.ref == branch_name:
-                return pr.number
+        branch_name = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
+        return branch_name
+    except subprocess.CalledProcessError as e:
+        print(f"ERROR: Could not detect current branch. {e}")
+        return None
+
+def get_pr_branch(repo, pr_number):
+    """
+    Fetches the branch name associated with a pull request.
+    """
+    try:
+        pr = repo.get_pull(pr_number)
+        return pr.head.ref
     except Exception as e:
-        print(f"ERROR: Could not fetch pull requests. Error: {e}")
-    return None
+        print(f"ERROR: Could not fetch PR #{pr_number} branch. {e}")
+        return None
 
 def main():
     """
-    Main flow to auto-detect CHANGE_ID dynamically.
+    Main flow to dynamically detect CHANGE_ID and BRANCH_NAME.
     """
     github_token = os.getenv('GITHUB_TOKEN')
     repo_name = os.getenv('GITHUB_REPO', '').replace('.git', '')
-    branch_name = os.getenv('BRANCH_NAME', '')  # Passed dynamically by CI/CD or detected locally
-
-    if not github_token or not repo_name or not branch_name:
-        print("ERROR: Missing required environment variables: GITHUB_TOKEN, GITHUB_REPO, BRANCH_NAME.")
+    
+    if not github_token or not repo_name:
+        print("ERROR: Missing required environment variables: GITHUB_TOKEN, GITHUB_REPO.")
         return
 
     try:
@@ -125,9 +133,22 @@ def main():
         print(f"ERROR: Could not connect to repository '{repo_name}'. Error: {e}")
         return
 
-    # Dynamically detect PR number based on branch
-    pr_number = get_pr_number(repo, branch_name)
-    if pr_number is None:
+    # Try to detect the current branch name
+    branch_name = get_current_branch()
+    if not branch_name:
+        print("ERROR: Could not detect the current branch name.")
+        return
+    print(f"Detected Branch Name: {branch_name}")
+
+    # Detect PR number associated with the branch
+    pr_number = None
+    pulls = repo.get_pulls(state='open')
+    for pr in pulls:
+        if pr.head.ref == branch_name:
+            pr_number = pr.number
+            break
+
+    if not pr_number:
         print(f"ERROR: No open pull request found for branch '{branch_name}'.")
         return
 

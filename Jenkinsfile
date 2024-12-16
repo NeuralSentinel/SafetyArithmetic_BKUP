@@ -1,55 +1,34 @@
 pipeline {
     agent any
-
+    
     environment {
-        // Explicit PATH setup (if needed)
+        // Explicit PATH
         PATH = "/usr/local/bin:/usr/bin:/bin"
-
+        
         // Jenkins credentials
         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
         GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
-
-        // Additional environment vars (edit as needed)
-        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"  // e.g. "octocat/Hello-World"
-        CHANGE_ID   = "123"               // PR number
+        
+        // GITHUB_REPO is the "owner/repo" for GitHub
+        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"
+        // Do NOT hardcode CHANGE_ID; Jenkins sets it automatically for PR builds
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
-                // Pull the Jenkinsfile's own repo code which includes review.py
                 checkout scm
             }
         }
-
-        stage('List Files') {
-            steps {
-                sh 'ls -la'
-            }
-        }
-
-        stage('Prepare Environment') {
-            steps {
-                sh '''
-                    echo "Verifying Docker is installed..."
-                    which docker || echo "Docker not found!"
-                    docker --version || true
-
-                    echo "PATH in Jenkins environment is: $PATH"
-                '''
-            }
-        }
-
+        
         stage('Run Code Review in Docker') {
             steps {
                 sh """
-                    echo "Pulling Python 3.9 Docker image..."
                     docker pull python:3.9
-
-                    echo "Running Docker container to execute review script..."
                     docker run --rm \\
                         -v "\$WORKSPACE:/workspace" \\
                         -w /workspace \\
+                        -e PATH=\$PATH \\
                         -e OPENAI_API_KEY=\$OPENAI_API_KEY \\
                         -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
                         -e GITHUB_REPO=\$GITHUB_REPO \\
@@ -57,13 +36,82 @@ pipeline {
                         python:3.9 /bin/bash -c "
                             python -m pip install --upgrade pip
                             pip install openai PyGithub GitPython
-                            python review_pr.py
+                            python review.py
                         "
                 """
             }
         }
     }
 }
+
+
+
+// pipeline {
+//     agent any
+
+//     environment {
+//         // Explicit PATH setup (if needed)
+//         PATH = "/usr/local/bin:/usr/bin:/bin"
+
+//         // Jenkins credentials
+//         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
+//         GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
+
+//         // Additional environment vars (edit as needed)
+//         GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"  // e.g. "octocat/Hello-World"
+//         CHANGE_ID   = "123"               // PR number
+//     }
+
+//     stages {
+//         stage('Checkout') {
+//             steps {
+//                 // Pull the Jenkinsfile's own repo code which includes review.py
+//                 checkout scm
+//             }
+//         }
+
+//         stage('List Files') {
+//             steps {
+//                 sh 'ls -la'
+//             }
+//         }
+
+//         stage('Prepare Environment') {
+//             steps {
+//                 sh '''
+//                     echo "Verifying Docker is installed..."
+//                     which docker || echo "Docker not found!"
+//                     docker --version || true
+
+//                     echo "PATH in Jenkins environment is: $PATH"
+//                 '''
+//             }
+//         }
+
+//         stage('Run Code Review in Docker') {
+//             steps {
+//                 sh """
+//                     echo "Pulling Python 3.9 Docker image..."
+//                     docker pull python:3.9
+
+//                     echo "Running Docker container to execute review script..."
+//                     docker run --rm \\
+//                         -v "\$WORKSPACE:/workspace" \\
+//                         -w /workspace \\
+//                         -e OPENAI_API_KEY=\$OPENAI_API_KEY \\
+//                         -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
+//                         -e GITHUB_REPO=\$GITHUB_REPO \\
+//                         -e CHANGE_ID=\$CHANGE_ID \\
+//                         python:3.9 /bin/bash -c "
+//                             python -m pip install --upgrade pip
+//                             pip install openai PyGithub GitPython
+//                             python review_pr.py
+//                         "
+//                 """
+//             }
+//         }
+//     }
+// }
 
 
 

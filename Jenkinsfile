@@ -1,48 +1,46 @@
 pipeline {
     agent any
-    
     environment {
-        // Explicit PATH
         PATH = "/usr/local/bin:/usr/bin:/bin"
-        
-        // Jenkins credentials
+
         OPENAI_API_KEY = credentials('OPENAI_API_KEY')
-        GITHUB_TOKEN   = credentials('GITHUB_TOKEN')
+        GITHUB_TOKEN   = credentials('GITHUB_TOKEN')  // Must exist in Jenkins credentials
+
+        // Provide your actual "owner/repo"
+        GITHUB_REPO = "octocat/Hello-World"
         
-        // GITHUB_REPO is the "owner/repo" for GitHub
-        GITHUB_REPO = "NeuralSentinel/SafetyArithmetic_BKUP"
-        // Do NOT hardcode CHANGE_ID; Jenkins sets it automatically for PR builds
+        // If not building a PR automatically, set a param or hardcode the PR number
+        // For dynamic PR builds, remove this and let Jenkins set CHANGE_ID
+        CHANGE_ID   = "123"  
     }
-    
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
-        stage('Run Code Review in Docker') {
+        stage('Run Code Review') {
             steps {
                 sh """
-                    docker pull python:3.9
-                    docker run --rm \\
-                        -v "\$WORKSPACE:/workspace" \\
-                        -w /workspace \\
-                        -e PATH=\$PATH \\
-                        -e OPENAI_API_KEY=\$OPENAI_API_KEY \\
-                        -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
-                        -e GITHUB_REPO=\$GITHUB_REPO \\
-                        -e CHANGE_ID=\$CHANGE_ID \\
-                        python:3.9 /bin/bash -c "
-                            python -m pip install --upgrade pip
-                            pip install openai PyGithub GitPython
-                            python review_pr.py
-                        "
+                  docker run --rm \\
+                    -v "\$WORKSPACE:/workspace" \\
+                    -w /workspace \\
+                    -e PATH=\$PATH \\
+                    -e OPENAI_API_KEY=\$OPENAI_API_KEY \\
+                    -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
+                    -e GITHUB_REPO=\$GITHUB_REPO \\
+                    -e CHANGE_ID=\$CHANGE_ID \\
+                    python:3.9 /bin/bash -c "
+                        python -m pip install --upgrade pip
+                        pip install openai PyGithub GitPython
+                        python review.py
+                    "
                 """
             }
         }
     }
 }
+
 
 //test
 

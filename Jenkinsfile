@@ -1,42 +1,46 @@
 pipeline {
-    agent {
-        docker {
-            image 'python:3.9' // Use Python 3.9 Docker image
-            args '-u root'     // Run as root to allow package installations
-        }
-    }
+    agent any
     environment {
+        PATH = "/usr/local/bin:/usr/bin:/bin" // Explicitly define PATH as in your original pipeline
         OPENAI_API_KEY = credentials('OPENAI_API_KEY') // Securely fetch API key from Jenkins credentials
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')     // Securely fetch GitHub token from Jenkins credentials
     }
     stages {
-        stage('Checkout repository') {
-            steps {
-                // Use a plugin or script to check out the repository
-                checkout scm
-            }
-        }
-        stage('Install dependencies') {
+        stage('Prepare Environment') {
             steps {
                 sh '''
-                # Upgrade pip
-                python -m pip install --upgrade pip
-
-                # Install required Python packages
-                pip install openai PyGithub GitPython
+                # Verify Docker is available
+                which docker
+                docker --version
                 '''
             }
         }
-        stage('Run Code Review') {
+        stage('Run Code Review in Docker') {
             steps {
                 sh '''
-                # Execute the code review script
-                python .github/actions/code_review.py
+                # Pull Python 3.9 Docker image
+                docker pull python:3.9
+
+                # Run the Docker container to execute the script
+                docker run --rm \
+                    -v $PWD:/workspace \  # Mount workspace to container
+                    -w /workspace \       # Set working directory inside the container
+                    -e OPENAI_API_KEY=$OPENAI_API_KEY \ # Pass environment variables
+                    -e GITHUB_TOKEN=$GITHUB_TOKEN \
+                    python:3.9 /bin/bash -c "
+                        # Install dependencies
+                        python -m pip install --upgrade pip
+                        pip install openai PyGithub GitPython
+
+                        # Execute the script
+                        python .github/actions/code_review.py
+                    "
                 '''
             }
         }
     }
 }
+
 
 
 
